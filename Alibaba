@@ -1,0 +1,52 @@
+import requests
+import re
+import time
+import sys
+from socket import socket
+
+CARBON_SERVER = '18.207.154.217'  # Grafana on AWS
+CARBON_PORT = 2003
+
+sock = socket()
+try:
+    sock.connect((CARBON_SERVER, CARBON_PORT))
+
+except:
+    print("Couldn't connect to %(server)s on port %(port)d, is carbon-agent.py running?" % {'server': CARBON_SERVER,'port': CARBON_PORT})
+
+    sys.exit(1)
+
+def alibaba_get(keyword):
+    url = "https://www.alibaba.com/trade/search?fsb=y&IndexArea=product_en&CatId=&keywords=" + keyword
+    return(requests.get(url).text)
+
+def alibaba_parse(text, keyword):
+    result = re.search(r"<span>([0-9]+)</span> results for", text)
+    number_of_results = (int(result.group(1).replace(',','')))
+    print("alibaba {}: {}".format(keyword, number_of_results))
+
+
+    kw = keyword.replace(" ", "")
+    message = "alibaba." + kw + ' ' + str(number_of_results) + " " + str(time.time()) + "\n"
+    print(message)
+    try:
+        sock.sendall(message.encode())  # send the result to Carbon/Graphite
+    except:
+        print('failed to send')
+        e = sys.exe.info()[0]
+        print(e)
+
+for keyword in ["set top box", "cable box", "iptv", "pre-modded", "descrambler"]:
+    text = alibaba_get(keyword)
+    alibaba_parse(text,keyword)
+
+#def tmp_save(text):
+#    with open('result.html', 'w', encoding='utf-8')as file:
+#        file.write(text)
+
+#def tmp_load():
+#    with open('result.html', 'r', encoding='utf-8') as file:
+#        return file.read()
+
+tmp_save(alibaba_get())
+alibaba_parse(tmp_load())
