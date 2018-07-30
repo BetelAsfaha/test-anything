@@ -1,0 +1,74 @@
+import requests
+import re
+import random
+import time
+import sys
+from socket import socket
+
+UAS =(  "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1" ,
+       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10; rv:33.0) Gecko/20100101 Firefox/3" ,
+       "Mozilla/5.0 (Windows NT 6.3; rv:36.0) Gecko/20100101 Firefox/36.0" ,
+       "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36" ,
+       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.1 Safari/537.36" ,
+       "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36")
+
+CARBON_SERVER = '18.207.154.217'  # Grafana on AWS
+CARBON_PORT = 2003
+
+#def tmp_save(text):
+sock = socket()
+try:
+    sock.connect((CARBON_SERVER, CARBON_PORT))
+
+except:
+    print("Couldn't connect to %(server)s on port %(port)d, is carbon-agent.py running?" % {'server': CARBON_SERVER,'port': CARBON_PORT})
+
+    sys.exit(1)
+
+#with open('result.html', 'w') as file:
+#       file.write(text)
+
+#def tmp_load():
+ # with open('result.html', 'r') as file:
+  #     return file.read()
+
+def amazon_get(keyword):
+   url = "https://www.amazon.com/s/ref=nb_sb_noss_1?url=search-alias%3Daps&field-keywords=" + keyword
+   ua = UAS[random.randrange(len(UAS))]
+   headers = {'user-agent': ua}
+   r = requests.get(url, headers=headers)
+
+#   url = "https://www.amazon.com/s/ref=nb_sb_noss_1?url=search-alias%3Daps&field-keywords=cable+box"
+#def amazon_get(keyword):
+
+   return requests.get(url).text
+
+#tmp_save(amazon_get())
+# print(requests.get(url).text)
+
+#text = tmp_load()
+
+#def amazon_parse(text):
+def amazon_parse(text, keyword):
+   results = re.search(r'of over ([0-9,]+) (results) for', text)
+   if not results:
+       results = re.search(r'of ([0-9,]+) (results) for', text)
+   number_of_results = int(results.group(1).replace(',', ''))
+   print("amazon {}: {}".format(keyword, number_of_results))
+
+   kw = keyword.replace(" ", "")
+   message = "amazon." + kw + ' ' + str(number_of_results) + " "+ str(time.time())+ "\n"
+   print(message)
+   try:
+       sock.sendall(message.encode())  # send the result to Carbon/Graphite
+   except:
+       print('failed to send')
+       e = sys.exe.info()[0]
+       print(e)
+   #print("amazon: ", number_of_results)
+for keyword in ["cable box", "set top box", "iptv", "pre-modded", "descrambler"]:
+   text = amazon_get(keyword)
+   amazon_parse(text, keyword)
+
+text= amazon_get()
+amazon_parse(text)
